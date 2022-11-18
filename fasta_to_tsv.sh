@@ -4,7 +4,8 @@ set -euo pipefail
 
 if [ $# -eq 0 ] || [ -z "${1:-}" ]
 then
-  echo "USAGE: $(basename $0) [in.fasta|-] > out.tsv
+  echo "USAGE: $(basename $0) [in.fasta|-] > out.tsv"
+  exit 0
 elif [ "${1:-}" == "-" ]
 then
   INFILE="/dev/stdin"

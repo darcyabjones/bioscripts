@@ -5,6 +5,7 @@ set -euo pipefail
 if [ $# -lt 2 ] || [ -z "${1:-}" ] || [ -z "${2:-}" ]
 then
     echo "USAGE: $(basename $0) REFNAME [vcffile.vcf.gz|-]"
+    exit 0
 fi
 
 REF="$1"
