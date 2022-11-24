@@ -28,13 +28,17 @@ else
     OUTFILE="${2:-}"
 fi
 
-if [ "${OUTFILE}" != *.gz ]
+if [[ "${OUTFILE}" != *".gz" ]]
 then
     echo "ERROR: your output file doesn't end with a .gz extension, but will still be gzipped." >&2
     exit 1
 fi
 
-(grep "^#" "${INFILE}"; grep -v "^#" "${INFILE}" | sort -k1,1 -k4,4n) \
+IF="$(cat "${INFILE}")"
+HEADER="$(echo "${IF}" | (grep '^#' || :))"
+NOTHEADER="$(echo "${IF}" | (grep -v '^#' || :))"
+
+(echo "${HEADER}"; echo "${NOTHEADER}" | sort -k1,1 -k4,4n ) \
 | bgzip --stdout \
 > "${OUTFILE}"
 
