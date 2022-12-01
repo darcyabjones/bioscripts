@@ -33,8 +33,8 @@ fasta_to_tsv() {
 # Remove gaps
 # Remove trailing stops
 # Replace internal stops, non-standard, and redundant AAs with X
-sed '/^[^>]/ s/-.//g' "${INFILE}" \
+sed '/^[^>]/ s/-//g' "${INFILE}" \
   | fasta_to_tsv \
-  | sed 's/\*$//g' \
+  | sed 's/[\.\*]$//g' \
   | awk -F '\t' '{ printf(">%s\n%s\n", $1, toupper($2)) }' \
-  | sed '/^[^>]/ s/\*JBZUO/X/g'
+  | sed '/^[^>]/ s/[\.\*JBZUO]/X/g'
