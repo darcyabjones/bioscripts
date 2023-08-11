@@ -25,7 +25,7 @@ BW="${3}"
 TMPFILE="/tmp/$$-bam_to_bigwig.bedgraph"
 trap "rm -f '${TMPFILE}'" EXIT
 
-samtools view -O BAM "${INFILE}" \
+samtools view -O BAM "${BAM}" \
 | bedtools genomecov -bga -split -ibam - \
 > "${TMPFILE}"
 

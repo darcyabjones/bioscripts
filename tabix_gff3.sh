@@ -39,6 +39,7 @@ HEADER="$(echo "${IF}" | (grep '^#' || :))"
 NOTHEADER="$(echo "${IF}" | (grep -v '^#' || :))"
 
 (echo "${HEADER}"; echo "${NOTHEADER}" | sort -k1,1 -k4,4n ) \
+| (grep -v '^[[:space:]]*$' || :) \
 | bgzip --stdout \
 > "${OUTFILE}"
 
