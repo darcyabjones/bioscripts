@@ -3,9 +3,10 @@
 import re
 
 import os
+import shutil
 import gzip
 from os import makedirs
-from os.path import basename, splitext
+from os.path import basename, splitext, isfile
 from os.path import join as pjoin
 from typing import NamedTuple
 
@@ -60,10 +61,11 @@ def trim_lddt_left(lddt, threshold=70, window_size=5):
             break
 
     current_trim = j
-    while lddt[current_trim - 1] >= threshold:
+    while current_trim >= 0 and lddt[current_trim - 1] >= threshold:
         current_trim -= 1
 
     return current_trim
+
 
 def trim_lddt_right(lddt, threshold=70, window_size=5):
 
@@ -78,7 +80,7 @@ def trim_lddt_right(lddt, threshold=70, window_size=5):
             break
 
     current_trim = i
-    while lddt[current_trim] >= threshold:
+    while current_trim < len(lddt) and lddt[current_trim] >= threshold:
         current_trim += 1
 
     return current_trim
@@ -118,7 +120,10 @@ class MMCIFData(NamedTuple):
         rtrim = trim_lddt_right(lddt, threshold=lddt_threshold, window_size=lddt_window_size)
 
         if ltrim > rtrim:
-            raise ValueError("None of your sequence has a high enough LDDT to pass your thresholds.")
+            raise ValueError(
+                f"None of the sequence in {basename(filename)} "
+                "has a high enough LDDT to pass your thresholds."
+            )
 
         return cls(
             filename,
@@ -244,11 +249,20 @@ class TargetP(NamedTuple):
         return
 
 
-def run_targetp(seqs, plant=False, cmd="targetp-2.0/bin/targetp"):
+def run_targetp(seqs, plant=False, cmd="targetp"):
     from subprocess import run
     from tempfile import NamedTemporaryFile
 
     from Bio import SeqIO
+
+    if (shutil.which(cmd) is None) and (not isfile(cmd)):
+        if isfile(pjoin(".", cmd)):
+            cmd = pjoin(".", cmd)
+        else:
+            raise ValueError(
+                "Targetp could not be found on your PATH "
+                f"or did not exist in {cmd}"
+            )
 
     with NamedTemporaryFile(mode="w") as fp:
         SeqIO.write(seqs, fp.name, "fasta")
@@ -417,14 +431,22 @@ def process_batch(
             )
             structure_data[mm.id] = mm
         except Exception as e:
+            if str(e).startswith("None of the sequence in"):
+                print(f"WARNING: {str(e)}")
+                continue
             raise ValueError(f"Got an error while processing {filename}: {str(e)}")
 
+    if len(structure_data) == 0:
+        return
 
-    targetp_results = run_targetp(
-        [sd.seq for sd in structure_data.values()],
-        plant=plant,
-        cmd=targetp_cmd
-    )
+    if targetp_cmd is not None:
+        targetp_results = run_targetp(
+            [sd.seq for sd in structure_data.values()],
+            plant=plant,
+            cmd=targetp_cmd
+        )
+    else:
+        targetp_results = dict()
 
     trim_em(outdir, structure_data, targetp_results, compress)
     return
@@ -491,10 +513,12 @@ def cli():
     parser.add_argument(
         "--targetp",
         type=str,
-        default="targetp",
+        nargs="?",
+        const="targetp",
+        default=None,
         help=(
             "Specify a specific path to look for the targetp2 executable. "
-            "By default looks for it in your PATH."
+            "By default it will not run targetp. If you specify '--targetp' but no path, it will look in your PATH."
         )
     )
 
@@ -522,10 +546,11 @@ def main():
         in args.infiles
         if l.strip() != ""
     ]
-    print(infiles)
 
     # I don't want any really small chunks left over at the end
     minsize = round(args.chunksize / 10)
+
+    print("tp", args.targetp)
 
     for i in range(0, len(infiles), args.chunksize):
         if (i + args.chunksize + minsize) > len(infiles):
@@ -534,8 +559,6 @@ def main():
         else:
             j = i + args.chunksize
             should_break = False
-
-        print(i, j)
 
         process_batch(
             infiles[i:j],
