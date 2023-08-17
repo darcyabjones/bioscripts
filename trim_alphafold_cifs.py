@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 
 import re
 
@@ -175,7 +174,11 @@ class TargetPPlant(NamedTuple):
         matches = PL_CS_POS_REGEX.findall(string)
 
         if (matches is None) or len(matches) == 0:
-            raise ValueError(f"Received no cutsite locations in {string}")
+            if "Probable protein fragment" in string:
+                return None
+            else:
+                raise ValueError(f"Received no cutsite locations in {string}")
+
 
         cs = max([int(f[1]) for f in matches])
         return cs
@@ -227,7 +230,11 @@ class TargetP(NamedTuple):
         match = PL_CS_POS_REGEX.match(string)
 
         if (match is None):
-            raise ValueError(f"Received no cutsite locations in {string}")
+            if "Probable protein fragment" in string:
+                return None
+            else:
+                raise ValueError(f"Received no cutsite locations in {string}")
+
 
         # TargetP can still give lumen predictions even if in non-plant mode.
         # We'll simply ignore it.
@@ -375,7 +382,7 @@ def write_compressed_pdb(writer, filename, select):
         handle.write(sio.read().encode())
 
 
-def trim_em(outdir, structure_data, targetp_results, compress=False):
+def trim_em(outdir, structure_data, targetp_results, minsize, compress=False):
     writer = PDBIO()
 
     makedirs(outdir, exist_ok=True)
@@ -395,6 +402,13 @@ def trim_em(outdir, structure_data, targetp_results, compress=False):
             ltrim = max([sdata.left_trim, tp.cs])
 
         rtrim = sdata.right_trim
+
+        if rtrim - ltrim < minsize:
+            print(
+                f"WARNING: After trimming {basename(filename)} "
+                f"had only {rtrim - ltrim} residues left. skipping"
+            )
+            continue
 
         cif = read_mmcif(id_, filename)
 
@@ -417,6 +431,7 @@ def process_batch(
     lddt_window_size,
     plant,
     targetp_cmd,
+    minsize,
     compress=False
 ):
     structure_data: dict[str, MMCIFData] = dict()
@@ -448,7 +463,7 @@ def process_batch(
     else:
         targetp_results = dict()
 
-    trim_em(outdir, structure_data, targetp_results, compress)
+    trim_em(outdir, structure_data, targetp_results, minsize, compress)
     return
 
 
@@ -534,6 +549,14 @@ def cli():
         )
     )
 
+    parser.add_argument(
+        "-m", "--minsize",
+        type=int,
+        default=10,
+        help="Filter out structures with fewer than this many AAs after trimming."
+    )
+
+
     return parser.parse_args()
 
 
@@ -550,8 +573,6 @@ def main():
     # I don't want any really small chunks left over at the end
     minsize = round(args.chunksize / 10)
 
-    print("tp", args.targetp)
-
     for i in range(0, len(infiles), args.chunksize):
         if (i + args.chunksize + minsize) > len(infiles):
             j = len(infiles)
@@ -567,6 +588,7 @@ def main():
             args.window,
             args.plant,
             args.targetp,
+            args.minsize,
             args.compress
         )
 
