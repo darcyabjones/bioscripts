@@ -4,7 +4,7 @@ set -euo pipefail
 
 if [ $# -eq 0 ] || [ -z "${1:-}" ]
 then
-  echo "USAGE: $(basename $0) [in.gff3|-] [out.gff3.gz]"
+  echo "USAGE: $(basename $0) [in.fasta|-] [out.fasta.gz]"
   exit 0
 elif [ "${1:-}" == "-" ]
 then
@@ -34,17 +34,10 @@ then
     exit 1
 fi
 
-IF="$(cat "${INFILE}")"
-HEADER="$(echo "${IF}" | (grep '^#' || :) | (grep -v '^###$' || :))"
-NOTHEADER="$(echo "${IF}" | (grep -v '^#' || :))"
 
-(echo "${HEADER}"; echo "${NOTHEADER}" | sort -k1,1 -k4,4n ) \
-| (grep -v '^$' || :) \
-| bgzip --stdout \
-> "${OUTFILE}"
-
-bgzip --force --force --reindex "${OUTFILE}"
-tabix -p gff "${OUTFILE}"
+cat "${INFILE}" | bgzip --stdout > "${OUTFILE}"
+bgzip --reindex "${OUTFILE}"
+samtools faidx "${OUTFILE}"
 
 cd $(dirname "${OUTFILE}")
 md5sum $(basename "${OUTFILE}") > "${OUTFILE}.md5"

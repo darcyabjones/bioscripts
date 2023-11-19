@@ -25,6 +25,8 @@ WINDOWSIZE="${4:-1000}"
 FAI_CONT=$(awk -F'\t' -v OFS='\t' '{print $1, 0, $2}' "${FAI}")
 WINDOWS=$(bedtools makewindows -b <(echo "${FAI_CONT}") -w 1000)
 
+trap "rm -f '${PREFIX}.bedgraph'" EXIT
+
 bedtools \
     nuc \
     -fi "${FASTA}" \
@@ -35,3 +37,4 @@ bedtools \
 > "${PREFIX}.bedgraph"
 
 bedGraphToBigWig "${PREFIX}.bedgraph" "${FAI}" "${PREFIX}.bw"
+md5sum "${PREFIX}.bw" > "${PREFIX}.bw.md5"

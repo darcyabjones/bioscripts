@@ -40,5 +40,6 @@ do
     cut -d$'\t' -f1,2,3,${idx} "${BEDGRAPH}" | tail -n+${TAILN} | (grep -v '^#' || : ) | awk '$4 != "NA"' > "${BGTMP}"
     # on bioconda as ucsc-bedgraphtobigwig
     bedGraphToBigWig "${BGTMP}" "${FAI}" "${PREFIX}${col}.bw"
+    md5sum $(basename "${PREFIX}${col}.bw") > "${PREFIX}${col}.bw.md5"
     rm -f "${BGTMP}"
 done
