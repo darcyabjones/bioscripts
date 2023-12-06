@@ -8,6 +8,9 @@ then
   exit 0
 fi
 
+BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LIB_DIR="$(dirname "${BIN_DIR}")/lib"
+
 CONFIG="$1"
 ASSEMBLY_NAME="$2"
 URL_BASE="$3"

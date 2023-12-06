@@ -1,12 +1,17 @@
 #!/usr/bin/env bash
 
-set -euo pipefail
+set -xeuo pipefail
 
 if [ "$#" -ne 5 ]
 then
   echo "USAGE: $(basename $0) CONFIG ASSEMBLYNAME URLBASE MRNAFUNCSBASE PREDECTOR"
   exit 0
 fi
+
+BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LIB_DIR="$(dirname "${BIN_DIR}")/lib"
+
+echo "${BIN_DIR}"
 
 CONFIG="$1"
 ASSEMBLY_NAME="$2"
@@ -25,19 +30,21 @@ do
   BN="$(basename "${f%.gff3.gz}")"
   TOOL="${BN#${PREDECTOR}:}"
 
-  jbrowse add-track \
+  bash "${BIN_DIR}/jbrowse-add-track.sh" \
     --target "${CONFIG}" \
-    --assemblyNames "${ASSEMBLY_NAME}" \
+    --assemblyName "${ASSEMBLY_NAME}" \
     --trackId "${NUCLEAR_MRNA_FUNCTIONS_BASENAME}-${BN}" \
     --name "${TOOL}" \
     --category "Protein functions,${PREDECTOR}" \
     --description "Location feature results for ${PREDECTOR} analysis ${TOOL}" \
-    "${URL_BASE}/${NUCLEAR_MRNA_FUNCTIONS_BASENAME}/$(basename ${f})"
+    --urlBase "${URL_BASE}" \
+    "${NUCLEAR_MRNA_FUNCTIONS_BASENAME}" \
+    "${f}"
 done
 
 
 TOOL="predutils:0.8.3-effector_score"
-THIS_CONFIG='{"displays": [{ "type": "LinearWiggleDisplay", "minScore": -3, "maxScore": 3, "posColor": "red", "negColor": "blue", "bicolorPivot": "numeric", "bicolorPivotValue": 0, "defaultRendering": "density"}]}'
+THIS_CONFIG='{"displays": [{ "type": "LinearWiggleDisplay", "displayId": "'"${NUCLEAR_MRNA_FUNCTIONS_BASENAME}-${PREDECTOR}:${TOOL}"'-LinearWiggleDisplay", "minScore": -3, "maxScore": 3, "posColor": "red", "negColor": "blue", "bicolorPivot": "numeric", "bicolorPivotValue": 0, "defaultRendering": "density"}]}'
 
 if [ -s "${NUCLEAR_MRNA_FUNCTIONS_BASENAME}/${PREDECTOR}:${TOOL}.bw" ]
 then
@@ -53,7 +60,7 @@ then
 fi
 
 TOOL="ApoplastP:1.0"
-THIS_CONFIG='{"displays": [{ "type": "LinearWiggleDisplay", "minScore": 0, "maxScore": 1, "posColor": "red", "negColor": "blue", "bicolorPivot": "numeric", "bicolorPivotValue": 0.5, "defaultRendering": "density"}]}'
+THIS_CONFIG='{"displays": [{ "type": "LinearWiggleDisplay", "displayId": "'"${NUCLEAR_MRNA_FUNCTIONS_BASENAME}-${PREDECTOR}:${TOOL}"'-LinearWiggleDisplay", "minScore": 0, "maxScore": 1, "posColor": "red", "negColor": "blue", "bicolorPivot": "numeric", "bicolorPivotValue": 0.5, "defaultRendering": "density"}]}'
 
 if  [ -s "${NUCLEAR_MRNA_FUNCTIONS_BASENAME}/${PREDECTOR}:${TOOL}.bw" ]
 then
@@ -70,7 +77,7 @@ fi
 
 
 TOOL="EffectorP1:1.0"
-THIS_CONFIG='{"displays": [{ "type": "LinearWiggleDisplay", "minScore": 0, "maxScore": 1, "posColor": "red", "negColor": "blue", "bicolorPivot": "numeric", "bicolorPivotValue": 0.5, "defaultRendering": "density"}]}'
+THIS_CONFIG='{"displays": [{ "type": "LinearWiggleDisplay", "displayId": "'"${NUCLEAR_MRNA_FUNCTIONS_BASENAME}-${PREDECTOR}:${TOOL}"'-LinearWiggleDisplay", "minScore": 0, "maxScore": 1, "posColor": "red", "negColor": "blue", "bicolorPivot": "numeric", "bicolorPivotValue": 0.5, "defaultRendering": "density"}]}'
 
 if [ -s "${NUCLEAR_MRNA_FUNCTIONS_BASENAME}/${PREDECTOR}:${TOOL}.bw" ]
 then
@@ -87,7 +94,7 @@ fi
 
 
 TOOL="EffectorP2:1.0"
-THIS_CONFIG='{"displays": [{ "type": "LinearWiggleDisplay", "minScore": 0, "maxScore": 1, "posColor": "red", "negColor": "blue", "bicolorPivot": "numeric", "bicolorPivotValue": 0.5, "defaultRendering": "density"}]}'
+THIS_CONFIG='{"displays": [{ "type": "LinearWiggleDisplay", "displayId": "'"${NUCLEAR_MRNA_FUNCTIONS_BASENAME}-${PREDECTOR}:${TOOL}"'-display", "minScore": 0, "maxScore": 1, "posColor": "red", "negColor": "blue", "bicolorPivot": "numeric", "bicolorPivotValue": 0.5, "defaultRendering": "density"}]}'
 
 if [ -s "${NUCLEAR_MRNA_FUNCTIONS_BASENAME}/${PREDECTOR}:${TOOL}.bw" ]
 then
@@ -109,7 +116,7 @@ if [ -s "${NUCLEAR_MRNA_FUNCTIONS_BASENAME}/${PREDECTOR}:${TOOL}-apoplastic.bw" 
   && [ -s "${NUCLEAR_MRNA_FUNCTIONS_BASENAME}/${PREDECTOR}:${TOOL}-cytoplasmic.bw" ] \
   && [ -s "${NUCLEAR_MRNA_FUNCTIONS_BASENAME}/${PREDECTOR}:${TOOL}-noneffector.bw" ]
 then
-  bash "${SCRIPT_DIR}"/prep_multibigwig.sh \
+  bash "${BIN_DIR}/jbrowse-add-multibigwig_track.sh" \
     --target "${CONFIG}" \
     --assemblyNames "${ASSEMBLY_NAME}" \
     --trackId "${NUCLEAR_MRNA_FUNCTIONS_BASENAME}-${PREDECTOR}:${TOOL}" \
@@ -130,7 +137,7 @@ TOOL="deepredeff:0.1.0"
 if [ -s "${NUCLEAR_MRNA_FUNCTIONS_BASENAME}/${PREDECTOR}:${TOOL}-fungi.bw" ] \
   && [ -s "${NUCLEAR_MRNA_FUNCTIONS_BASENAME}/${PREDECTOR}:${TOOL}-oomycete.bw" ]
 then
-  bash "${SCRIPT_DIR}"/prep_multibigwig.sh \
+  bash "${BIN_DIR}"/jbrowse-add-multibigwig_track.sh \
     --target "${CONFIG}" \
     --assemblyNames "${ASSEMBLY_NAME}" \
     --trackId "${NUCLEAR_MRNA_FUNCTIONS_BASENAME}-${PREDECTOR}:${TOOL}" \
@@ -159,7 +166,7 @@ if   [ -s "${NUCLEAR_MRNA_FUNCTIONS_BASENAME}/${PREDECTOR}:${TOOL}-membrane.bw" 
   && [ -s "${NUCLEAR_MRNA_FUNCTIONS_BASENAME}/${PREDECTOR}:${TOOL}-cell_membrane.bw" ] \
   && [ -s "${NUCLEAR_MRNA_FUNCTIONS_BASENAME}/${PREDECTOR}:${TOOL}-extracellular.bw" ]
 then
-  bash "${SCRIPT_DIR}"/prep_multibigwig.sh \
+  bash "${BIN_DIR}"/jbrowse-add-multibigwig_track.sh \
     --target "${CONFIG}" \
     --assemblyNames "${ASSEMBLY_NAME}" \
     --trackId "${NUCLEAR_MRNA_FUNCTIONS_BASENAME}-${PREDECTOR}:${TOOL}" \
@@ -198,7 +205,7 @@ if   [ -s "${NUCLEAR_MRNA_FUNCTIONS_BASENAME}/${PREDECTOR}:${TOOL}_residue_numbe
   && [ -s "${NUCLEAR_MRNA_FUNCTIONS_BASENAME}/${PREDECTOR}:${TOOL}_aa_small_number.bw" ] \
   && [ -s "${NUCLEAR_MRNA_FUNCTIONS_BASENAME}/${PREDECTOR}:${TOOL}_aa_tiny_number.bw" ]
 then
-  bash "${SCRIPT_DIR}"/prep_multibigwig.sh \
+  bash "${BIN_DIR}"/jbrowse-add-multibigwig_track.sh \
     --target "${CONFIG}" \
     --assemblyNames "${ASSEMBLY_NAME}" \
     --trackId "${NUCLEAR_MRNA_FUNCTIONS_BASENAME}-${PREDECTOR}:${TOOL}" \
