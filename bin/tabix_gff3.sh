@@ -47,4 +47,4 @@ bgzip --force --force --reindex "${OUTFILE}"
 tabix -p gff "${OUTFILE}"
 
 cd $(dirname "${OUTFILE}")
-md5sum $(basename "${OUTFILE}") > "${OUTFILE}.md5"
+md5sum $(basename "${OUTFILE}") > "$(basename "${OUTFILE}.md5")"
