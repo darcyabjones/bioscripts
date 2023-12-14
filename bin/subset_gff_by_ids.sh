@@ -39,22 +39,30 @@ awk -F"\t" -v ID_FILE="${IDS}" -v WITHOUT="${WITHOUT}" -v DERIVES="${DERIVES}" '
   NF == 9 {
     any = "false"
     if ($9 ~ /ID=/) {
-      id=gensub(/.*ID=([^;\s]+).*/, "\\1", "g", $9)
+      id=gensub(/.*ID=([^;]+).*/, "\\1", "g", $9);
+      id=gensub(/^[[:space:]][[:space:]]*/, "", "g", id);
+      id=gensub(/[[:space:]][[:space:]]*$/, "", "g", id);
       if (IDS[id] == "true") {
         any = "true"
       }
     }
 
     if ($9 ~ /Parent=/) {
-      split(gensub(/.*Parent=([^;\s,]+).*/, "\\1", "g", $9), parents, ",")
-      for (parent in parents) {
-        if (IDS[parents[parent]] == "true") {any = "true"}
+      split(gensub(/.*Parent=([^;]+).*/, "\\1", "g", $9), parents, ",")
+      for (parenti in parents) {
+        parent = parents[parenti]
+        parent=gensub(/^[[:space:]][[:space:]]*/, "", "g", parent);
+        parent=gensub(/[[:space:]][[:space:]]*$/, "", "g", parent);
+        if (IDS[parent] == "true") {any = "true"}
       }
     }
 
     if ((DERIVES == "True") && ($9 ~ /Derives_from=/)) {
-      split(gensub(/.*Derives_from=([^;\s,]+).*/, "\\1", "g", $9), derives, ",")
-      for (derive in derives) {
+      split(gensub(/.*Derives_from=([^;]+).*/, "\\1", "g", $9), derives, ",")
+      for (derivei in derives) {
+        derive = parents[derivei]
+        derive=gensub(/^[[:space:]][[:space:]]*/, "", "g", derive);
+        derive=gensub(/[[:space:]][[:space:]]*$/, "", "g", derive);
         if (IDS[derives[derive]] == "true") {any = "true"}
       }
     }

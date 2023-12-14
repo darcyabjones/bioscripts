@@ -44,13 +44,20 @@ then
   awk -F"\t" -v PARENTS="${PARENTS}" '
     NF == 9 {
       if ($9 ~ /ID=/) {
-        id=gensub(/.*ID=([^;\s]+).*/, "\\1", "g", $9);
+        id=gensub(/.*ID=([^;]+).*/, "\\1", "g", $9);
+        id=gensub(/^[[:space:]][[:space:]]*/, "", "g", id);
+        id=gensub(/[[:space:]][[:space:]]*$/, "", "g", id);
         if (id != "") {printf("%s\n", id)}
       }
       if ((PARENTS == "True") && ($9 ~ /Parent=/)) {
-        split(gensub(/.*Parent=([^;\s]+).*/, "\\1", "g", $9), parents, ",")
-        for (parent in parents) {
-          if (parents[parent] != "") {printf("%s\n", parents[parent])}
+        split(gensub(/.*Parent=([^;]+).*/, "\\1", "g", $9), parents, ",")
+        for (parenti in parents) {
+          parent = parents[parenti]
+          parent=gensub(/^[[:space:]][[:space:]]*/, "", "g", parent);
+          parent=gensub(/[[:space:]][[:space:]]*$/, "", "g", parent);
+          if (parent != "") {
+              printf("%s\n", parent)
+          }
         }
       }
     }
@@ -60,13 +67,20 @@ else
   awk -F"\t" -v TYPE="${TYPE}" -v PARENTS="${PARENTS}" '
     $3 == TYPE {
       if ($9 ~ /ID=/) {
-        id=gensub(/.*ID=([^;\s]+).*/, "\\1", "g", $9);
+        id=gensub(/.*ID=([^;]+).*/, "\\1", "g", $9);
+        id=gensub(/^[[:space:]][[:space:]]*/, "", "g", id);
+        id=gensub(/[[:space:]][[:space:]]*$/, "", "g", id);
         if (id != "") {printf("%s\n", id)}
       }
       if ((PARENTS == "True") && ($9 ~ /Parent=/)) {
-        split(gensub(/.*Parent=([^;\s]+).*/, "\\1", "g", $9), parents, ",")
-        for (parent in parents) {
-          if (parents[parent] != "") {printf("%s\n", parents[parent])}
+        split(gensub(/.*Parent=([^;]+).*/, "\\1", "g", $9), parents, ",")
+        for (parenti in parents) {
+          parent = parents[parenti]
+          parent=gensub(/^[[:space:]][[:space:]]*/, "", "g", parent);
+          parent=gensub(/[[:space:]][[:space:]]*$/, "", "g", parent);
+          if (parent != "") {
+              printf("%s\n", parent)
+          }
         }
       }
     }
