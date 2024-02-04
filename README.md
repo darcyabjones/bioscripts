@@ -88,3 +88,141 @@ GNU parallel does have options for distributing jobs via MPI and there are trick
 
 
 I have no idea yet how robust the actual program is, so your milage may vary, but the approach does what I wanted it to.
+
+
+## `prefix_fasta.sh`
+
+Adds prefixes to a fasta for multi-genome analyses (e.g. constructing a pangenome graph or mixed RNAseq alignment).
+You provide names and fasta files, and the program simply puts the name in front of each seqid. Simple, but useful.
+
+Each name and fasta filename is provided in an alternating pattern (i.e. `name1 genome1.fasta name2 genome2.fasta`).
+To make it more readable, you can separate the pairs using `--` (e.g. `name1 genome1.fasta -- name2 genome2.fasta`).
+
+Examples.
+Say we have two fasta files, both with a single sequence called `chr1`.
+
+```bash
+prefix_fasta.sh --out combined.fasta --sep "#" \
+  genome1 g1.fasta \
+  genome2 g2.fasta
+```
+
+The output fasta sequence ids will be:
+
+```
+>genome1#chr1
+ATGC
+>genome2#chr1
+CGTA
+```
+
+You can also input from a table which may be more convenient as you can keep track of the changes easily.
+
+```bash
+cat <<EOF > table.tsv
+genome1	g1.fasta
+genome2	g2.fasta
+EOF
+
+prefix_fasta.sh --table table.tsv --out combined.fasta --sep "#"
+# Alternatively using '-' to take the table from stdin.
+cat table.tsv | prefix_fasta.sh --table - --out combined.fasta --sep "#"
+```
+
+This will produce identical results.
+`--table` can be specified multiple times to read from multiple tables, and table input can be combined with the argument name pairs.
+
+We suggest using '#' as the separator (it's the default) as it is recommended by people working with pangenomes ([See: PanSN-spec](https://github.com/pangenome/PanSN-spec)).
+You could run the program multiple times if you want to properly conform to the PanSN spec, e.g. adding your haplotype names first and then the ids, or just providing the haplotype number directly in the prefix.
+
+
+## `prefix_gff.sh`
+
+Like `prefix_fasta.sh`, but it adds a prefix to genome annotation sequence ids and [optionally] their gene/transcript ids.
+Despite the name, `prefix_gff.sh` will happily process GTF and BED files as well.
+
+The interface is similar to `prefix_fasta.sh`.
+
+E.G.
+
+```bash
+prefix_gff.sh --out combined.gff3 --sep "#" \
+  genome1 g1.gff3 \
+  genome2 g2.gff3
+```
+
+Will produce something like:
+
+```
+genome1#chr1	source	gene	1000	2000	0.1	+	.	ID=gene1
+genome2#chr1	source	gene	1500	2500	1.0	-	.	ID=gene1
+```
+
+Like with `prefix_fasta.sh` you can provide a table of name/gff pairs.
+
+Because we shouldn't really have multiple genes with the same name, we can also prefix the `ID`, `Parent`, and `Derives_from` fields in the GFF3 attributes column using the `--ids` flag.
+
+```bash
+prefix_gff.sh --ids --out combined.gff3 --sep "#" \
+  genome1 g1.gff3 \
+  genome2 g2.gff3
+```
+
+Will produce something like:
+
+```
+genome1#chr1	source	gene	1000	2000	0.1	+	.	ID=genome1#gene1
+genome1#chr1	source	mRNA	1000	2000	0.1	+	.	ID=genome1#mRNA1;Parent=genome1#gene1
+genome2#chr1	source	gene	1500	2500	1.0	-	.	ID=genome2#gene1
+```
+
+By providing the `--format` argument, we can change this to rename GTF or BED gene ids.
+For GTF files (`--format gtf`) the `gene_id` and `transcript_id` attributes are prefixed, and for BED files (`--format bed`) column 4 is prefixed (as it is the standard BED name column).
+For BED files with the names in a different column, you can also provide a number after format to add the prefix to that column. E.G. `--format 5` will add the prefix to column 5.
+
+> NOTE: `--format gff3` also enables some special handling of comments.
+> `##sequence-region` directives are also prefixed and `###` lines are filtered out. 
+
+
+Sorting the output file can be enabled with the `--sort` option. In this case, GFF and GTF files are sorted on columns 1, 4, and 5, and BED files are sorted by the first three columns. Make sure you're specifying the right --format if you use this.
+
+
+
+## `split_bam_by_prefix.sh`
+
+Splits an input BAM (or SAM/CRAM) aligned to a multi-organism genome by their reference prefix. This is designed to work with `prefix_fasta.sh` and `prefix_gff.sh`.
+
+You just need an input alignment and the prefix separation character.
+For CRAMs you'll also need the combined reference sequence.
+
+Assuming your reference sequences that the reads were aligned to are separated by a "#" (e.g. 'genome1#chr1', 'genome2#chr2'), you can split it into genome1 and 2 like so.
+
+```bash
+split_bam_by_prefix.sh --sep "#" --format BAM aligned.bam 
+```
+
+By default this will split it info files by the prefix (e.g. genome1.bam, genome2.bam`).
+
+You can specify the output files for prefixes specifically as with the `prefix\_\*.sh` commands, by providing a table or as positional arguments.
+
+```bash
+split_bam_by_prefix.sh --sep "#" --format BAM aligned.bam \
+  genome1 aligned1.bam
+```
+
+Will write genome1 to aligned1.bam.
+If any targets were specified (e.g. here we excluded genome2), then they will not be processed.
+
+If your prefixes have multiple `--sep` characters (e.g. if you're following the PanSN spec), you can use the `--nsep` flag to allow multiples.
+E.g. for a reference sequence "genome1#haplotype1#chr1" `--nsep 1` (default) would output the prefix as "genome1", and `--nsep 2` would output the prefix "genome1#haplotype1"  
+
+You can specify the output file as BAM, CRAM, or SAM with the `--format` parameter.
+If you are inputting or outputting a CRAM file, you'll need to provide the fasta reference that you aligned against (i.e. with the prefixes).
+
+Three methods of handling reads split across to multiple genomes (matching different prefixes) are offered and specified by the `--strategy` parameter.
+"exclude" (default) simply removes any alignments where a paired read or split alignment is aligned to another genome.
+"reset" removes any reference to the other member of the read pair or split aligned region, essentially leaving it as an unpaired alignment or short read alignment.
+Finally "nothing" makes no attempt to remove references to the other genomes, and you can deal with it yourself :). 
+
+> NB. `--strategy reset` will take much longer than the other two because it first has to sort by read-name and then by position.
+> "exclude" is probably the right option in most cases. If you're getting lots of reads split across genomes it's probably worth looking at your aligner parameters first.
