@@ -17,6 +17,7 @@ short="-u", long="--urlBase", dest="URL_BASE", type="str", help="The basename us
 short="-t", long="--target", dest="TARGET", type="str", default="${PWD}/config.json", help="The jbrowse2 config json file."
 long="--config", dest="TRACK_CONFIG_CLI", type="str", default="", help="Additional json data to add to the track."
 short="-e", long="--extension", dest="EXTENSION", type="str", default="", help="The file type to add. Exclude the dot, and a .gz extension if there is one."
+short="-k", long="--kind", dest="KIND", type="str", choice=["nuclear", "mitochondrial", "chloroplast"], default="nuclear", help="The kind of genome."
 long="--debug", dest="DEBUG", type="FLAG", default=False, help="Print extra logs to stdout."
 EOF
 )
@@ -54,6 +55,21 @@ fi
 
 TRACK_META_FILE="${BN}-metadata.json"
 TRACK_CONFIG_FILE="${BN}-jbrowse_config.json"
+
+if [ "${KIND}" == "nuclear" ]
+then
+  ANAME="${ASSEMBLY_NAME}"
+elif [ "${KIND}" == "mitochondrial" ]
+then
+  ANAME="${ASSEMBLY_NAME}-MT"
+elif [ "${KIND}" == "chloroplast" ]
+then
+  ANAME="${ASSEMBLY_NAME}-CP"
+else
+  echo "ERROR: This shouldn't happen" >&2
+  exit 0
+fi
+
 BN="$(basename "${BN}")"
 
 if [ -z "${NAME:-}" ]

@@ -31,11 +31,13 @@ Run "$(basename $0) --help" for extended usage information.' 1>&2
 
 help() {
   echo -e "
-
---target=<value>
---assemblyName=<value>
---displayName=<value> 
---urlBase=<value>
+--assemblyName <value>
+--fasta <value> 
+--mRNA <value>
+--tRNA <value>
+--rRNA <value>
+--TE <value>
+--kind nuclear|mitochondrial
 "
 }
 
