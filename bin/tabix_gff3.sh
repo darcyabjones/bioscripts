@@ -35,8 +35,8 @@ then
 fi
 
 IF="$(cat "${INFILE}")"
-HEADER="$(echo "${IF}" | (grep '^#' || :) | (grep -v '^###$' || :))"
-NOTHEADER="$(echo "${IF}" | (grep -v '^#' || :))"
+HEADER="$(echo "${IF}" | tr -dc '[[:print:][:space:]]' | (grep '^#' || :) | (grep -v '^###$' || :))"
+NOTHEADER="$(echo "${IF}" | tr -dc '[[:print:][:space:]]' | (grep -v '^#' || :))"
 
 (echo "${HEADER}"; echo "${NOTHEADER}" | sort -k1,1 -k4,4n ) \
 | (grep -v '^$' || :) \
