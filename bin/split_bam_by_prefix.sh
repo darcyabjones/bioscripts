@@ -289,14 +289,14 @@ select_regions() {
 
 ALL_REGIONS=$(find_regions "${INFILE}" "${SEP}" "${NSEP}")
 
-if [ -z "${TARGETS[@]}" ] || [ "${#TARGETS[@]}" -eq 0 ]
+if [ "${#TARGETS[@]}" -eq 0 ] || [ -z "${TARGETS[@]}" ]
 then
   if [ -z "${OUTFORMAT:-}" ]
   then
     OUTFORMAT="BAM"
   fi
   EXT="${FMT2EXT[${OUTFORMAT}]}"
-  NAMES=( $(echo "${REGIONS}" | awk -F '\t' '{print $1}' | sort -u) )
+  NAMES=( $(echo "${ALL_REGIONS}" | awk -F '\t' '{print $1}' | sort -u) )
 
   for NAME in "${NAMES[@]}"
   do
