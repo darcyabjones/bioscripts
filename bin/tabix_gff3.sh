@@ -38,7 +38,7 @@ IF="$(cat "${INFILE}")"
 HEADER="$(echo "${IF}" | tr -dc '[[:print:][:space:]]' | (grep '^#' || :) | (grep -v '^###$' || :))"
 NOTHEADER="$(echo "${IF}" | tr -dc '[[:print:][:space:]]' | (grep -v '^#' || :))"
 
-(echo "${HEADER}"; echo "${NOTHEADER}" | sort -k1,1 -k4,4n ) \
+(echo "${HEADER}"; echo "${NOTHEADER}" | sort -k1,1 -k4,4n -k5,5n) \
 | (grep -v '^$' || :) \
 | bgzip --stdout \
 > "${OUTFILE}"
