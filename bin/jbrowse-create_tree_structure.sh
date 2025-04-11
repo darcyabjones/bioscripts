@@ -2,183 +2,85 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LIB_DIR="$(dirname "${BIN_DIR}")/lib"
 
-DEBUG=false
 
-ASSEMBLY_NAME=
-FASTA=
-MRNA=
-TRNA=
-RRNA=
-TE=
+CMD=$(__generate-cli.py "$(basename $0)" "$@" <<EOF
+short="-a", long="--assemblyName", dest="ASSEMBLY_NAME", type="str", help="The name of the assembly to add."
+short="-k", long="--kind", dest="KIND", type="str", choice=["nuclear", "mitochondrial", "chloroplast"], default="nuclear", help="The kind of genome."
+short="-f", long="--fasta", dest="FASTA", type="str", help="The genome fasta to use."
+short="-m", long="--mRNA", dest="MRNA", type="str", default="", help="The mRNA gff3 file."
+short="-r", long="--rRNA", dest="RRNA", type="str", default="", help="The rRNA gff3 file."
+short="-t", long="--tRNA", dest="TRNA", type="str", default="", help="The tRNA gff3 file."
+short="-e", long="--TE", dest="TE", type="str", default="", help="The TE gff3 file."
+long="--ncRNA", dest="NCRNA", type="str", default="", help="The ncRNA gff3 file."
+long="--pseudogene", dest="PSEUDOGENE", type="str", default="", help="The pseudogene gff3 file."
+short="-b", long="--baseDir", dest="BASEDIR", type="str", default=".", help="Where to place the main directory."
+long="--debug", dest="DEBUG", type="FLAG", default=False, help="Print extra logs to stdout."
+EOF
+)
 
-KIND="nuclear"
-
-usage() {
-  echo -e "USAGE:
-$(basename $0) [--scale] [--strand] [--out PREFIX] FAI BAM
-
-Note that options (e.g. --scale) must come before positional arguments.
-"
-}
-
-usage_err() {
-  usage 1>&2
-  echo -e '
-Run "$(basename $0) --help" for extended usage information.' 1>&2
-}
-
-help() {
-  echo -e "
---assemblyName <value>
---fasta <value> 
---mRNA <value>
---tRNA <value>
---rRNA <value>
---TE <value>
---kind nuclear|mitochondrial
-"
-}
-
-check_nodefault_param() {
-    FLAG="${1}"
-    PARAM="${2}"
-    VALUE="${3}"
-    [ ! -z "${PARAM:-}" ] && (echo "Argument ${FLAG} supplied multiple times" 1>&2; exit 1)
-    [ -z "${VALUE:-}" ] && (echo "Argument ${FLAG} requires a value" 1>&2; exit 1)
-    true
-}
-
-check_param() {
-    FLAG="${1}"
-    VALUE="${2}"
-    [ -z "${VALUE:-}" ] && (echo "Argument ${FLAG} requires a value" 1>&2; exit 1)
-    true
-}
-
-if [[ $# -eq 0 ]]
+if ! (echo "${CMD}" | grep '^### __generate-cli output$' > /dev/null)
 then
-  usage
-  help
+  # help or an error occurred
+  echo "# $(basename $0)"
+  echo "${CMD}"
   exit 0
 fi
 
-while [[ $# -gt 0 ]]
-do
-  key="$1"
+eval "${CMD}"
 
-  case "${key}" in
-    -h|--help)
-      usage
-      help
-      exit 0
-      ;;
-    --assemblyName)
-      check_param_nodefault "--assemblyName" "${ASSEMBLY_NAME:-}" "${2:-}"
-      ASSEMBLY_NAME="${2}"
-      shift 2
-      ;;
-    --fasta)
-      check_param_nodefault "--fasta" "${ASSEMBLY_LONG_NAME:-}" "${2:-}"
-      ASSEMBLY_LONG_NAME="${2}"
-      shift 2
-      ;;
-    --mRNA)
-      check_param_nodefault "--mRNA" "${ASSEMBLY_LONG_NAME:-}" "${2:-}"
-      MRNA="${2}"
-      shift 2
-      ;;
-    --tRNA)
-      check_nodefault_param  "--tRNA" "${URL_BASE:-}" "${2:-}"
-      TRNA="${2}"
-      shift 2
-      ;;
-    --rRNA)
-      check_nodefault_param  "--rRNA" "${URL_BASE:-}" "${2:-}"
-      RRNA="${2}"
-      shift 2
-      ;;
-    --TE)
-      check_nodefault_param  "--TE" "${URL_BASE:-}" "${2:-}"
-      TE="${2}"
-      shift 2
-      ;;
-    --kind)
-      check_param  "--kind" "${2:-}"
-      if [ "${KIND}" != "mitochondrial" ] || [ "${KIND}" != "nuclear" ]
-      then
-        echo "ERROR: --kind can only be mitochondrial or nuclear. Not ${2}" >&2
-        exit 1
-      fi
-      KIND="${2}"
-      shift 2
-      ;;
-    --debug)
-      DEBUG=true
-      set -x
-      shift
-      ;;
-    *)
-      break
-  esac
-done
-
-if [ -z "${ASSEMBLY_NAME}" ]
+if [ "${DEBUG:-}"="True" ]
 then
-    echo "ERROR: We need an --assemblyName" >&2
-    exit 1
+  set +x
 fi
 
-if [ -z "${FASTA}" ]
-then
-    echo "ERROR: We need a --fasta" >&2
-    exit 1
-elif [ ! -s "${FASTA}" ]
+source "${LIB_DIR}/__jbrowse_setup_dirnames.sh" "${ASSEMBLY_NAME}" "${KIND}" "${BASEDIR:-}"
+source "${LIB_DIR}/external_tool_helpers.sh"
+
+mkdir -p \
+  "${COMPOSITION_BASENAME}" \
+  "${FEATURE_PREDICTIONS_BASENAME}" \
+  "${MRNA_FUNCTIONS_BASENAME}" \
+  "${MRNA_ALIGNMENTS_BASENAME}" \
+  "${PROTEIN_FUNCTIONS_BASENAME}" \
+  "${PROTEIN_ALIGNMENTS_BASENAME}" \
+  "${GENOMIC_ALIGNMENTS}" \
+  "${TRANSCRIPTOMIC_ALIGNMENTS}" \
+  "${DATABASE_ALIGNMENTS}" \
+  "${VARIANTS_BASENAME}"
+
+
+bash "${BIN_DIR}/__init_fhr_json.sh" "${ASSEMBLY_NAME}" "${KIND}" > "${BASENAME}-metadata.json" 
+
+if [ ! -s "${FASTA}" ]
 then
     echo "ERROR: The input fasta file ${FASTA} doesn't seem to exist." >&2
     exit 1
 fi
 
-
-BASENAME="${ASSEMBLY_NAME}-${KIND}"
-ALIGNMENTS_BASENAME="${BASENAME}-alignments"
-COMPOSITION_BASENAME="${BASENAME}-composition"
-GENE_PREDICTIONS_BASENAME="${BASENAME}-gene_predictions"
-
-MRNA_BASENAME="${BASENAME}-mRNA"
-MRNA_FUNCTIONS_BASENAME="${MRNA_BASENAME}-functions"
-MRNA_ALIGNMENTS_BASENAME="${MRNA_BASENAME}-alignments"
-
-TE_BASENAME="${BASENAME}-TE"
-RRNA_BASENAME="${BASENAME}-rRNA"
-TRNA_BASENAME="${BASENAME}-tRNA"
-
-GENOMIC_ALIGNMENTS="${BASENAME}-genomic_alignments"
-TRANSCRIPTOMIC_ALIGNMENTS="${BASENAME}-transcriptomic_alignments"
-DATABASE_ALIGNMENTS="${BASENAME}-database_alignments"
-
-VARIANTS_BASENAME="${BASENAME}-variants"
-
-
-bash "${SCRIPT_DIR}/../bgzip_fasta.sh" "${FASTA}" "${BASENAME}.fasta.gz"
+bash "${BIN_DIR}/bgzip_fasta.sh" "${FASTA}" "${BASENAME}.fasta.gz"
 
 if [ ! -z "${MRNA}" ]
 then
-  if [ -s "${MRNA}" ]
+  if [ ! -s "${MRNA}" ]
   then
-    bash "${SCRIPT_DIR}/../tabix_gff.sh" "${MRNA}" "${MRNA_BASENAME}.gff3.gz"
-  else
     echo "ERROR: The input file ${MRNA} doesn't seem to exist." >&2
     exit 1
   fi
+
+  bash "${BIN_DIR}/tabix_gff3.sh" "${MRNA}" "${MRNA_BASENAME}.gff3.gz"
+  try_extract_cds "${FASTA}" "${MRNA}" "${MRNA_BASENAME}"
+  try_extract_protein "${FASTA}" "${MRNA}" "${MRNA_BASENAME}"
+  try_extract_transcript "${FASTA}" "${MRNA}" "${MRNA_BASENAME}"
 fi
 
 if [ ! -z "${RRNA}" ]
 then
   if [ -s "${RRNA}" ]
   then
-    bash "${SCRIPT_DIR}/../tabix_gff.sh" "${RRNA}" "${RRNA_BASENAME}.gff3.gz"
+    bash "${BIN_DIR}/tabix_gff3.sh" "${RRNA}" "${RRNA_BASENAME}.gff3.gz"
   else
     echo "ERROR: The input file ${RRNA} doesn't seem to exist." >&2
     exit 1
@@ -189,7 +91,7 @@ if [ ! -z "${TRNA}" ]
 then
   if [ -s "${TRNA}" ]
   then
-    bash "${SCRIPT_DIR}/../tabix_gff.sh" "${TRNA}" "${TRNA_BASENAME}.gff3.gz"
+    bash "${BIN_DIR}/tabix_gff3.sh" "${TRNA}" "${TRNA_BASENAME}.gff3.gz"
   else
     echo "ERROR: The input file ${TRNA} doesn't seem to exist." >&2
     exit 1
@@ -200,23 +102,31 @@ if [ ! -z "${TE}" ]
 then
   if [ -s "${TE}" ]
   then
-    bash "${SCRIPT_DIR}/../tabix_gff.sh" "${TE}" "${TE_BASENAME}.gff3.gz"
+    bash "${BIN_DIR}/tabix_gff3.sh" "${TE}" "${TE_BASENAME}.gff3.gz"
   else
     echo "ERROR: The input file ${TE} doesn't seem to exist." >&2
     exit 1
   fi
 fi
 
-mkdir -p \
-  "${ALIGNMENTS_BASENAME}" \
-  "${COMPOSITION_BASENAME}" \
-  "${GENE_PREDICTIONS_BASENAME}" \
-  "${MRNA_FUNCTIONS_BASENAME}" \
-  "${MRNA_ALIGNMENTS_BASENAME}" \
-  "${PROTEIN_FUNCTIONS_BASENAME}" \
-  "${PROTEIN_ALIGNMENTS_BASENAME}" \
-  "${GENOMIC_ALIGNMENTS}" \
-  "${TRANSCRIPTOMIC_ALIGNMENTS}" \
-  "${DATABASE_ALIGNMENTS}" \
-  "${VARIANTS_BASENAME}"
+if [ ! -z "${NCRNA}" ]
+then
+  if [ -s "${NCRNA}" ]
+  then
+    bash "${BIN_DIR}/tabix_gff3.sh" "${NCRNA}" "${NCRNA_BASENAME}.gff3.gz"
+  else
+    echo "ERROR: The input file ${NCRNA} doesn't seem to exist." >&2
+    exit 1
+  fi
+fi
 
+if [ ! -z "${PSEUDOGENE}" ]
+then
+  if [ -s "${PSEUDOGENE}" ]
+  then
+    bash "${BIN_DIR}/tabix_gff3.sh" "${PSEUDOGENE}" "${PSEUDOGENE_BASENAME}.gff3.gz"
+  else
+    echo "ERROR: The input file ${PSEUDOGENE} doesn't seem to exist." >&2
+    exit 1
+  fi
+fi
